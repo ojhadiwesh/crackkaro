@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+model Tenant {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  logo_url      String?
+  primary_color String    @default("#6366f1")
+  created_at    DateTime  @default(now())
+
+  users    User[]
+  students Student[]
+  doubts   Doubt[]
+  tests    Test[]
+
+  @@map("tenants")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenant_id  String
+  phone      String?
+  email      String?  @unique
+  role       Role     @default(STUDENT)
+  created_at DateTime @default(now())
+
+  tenant  Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student?
+
+  @@index([tenant_id])
+  @@map("users")
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  user_id     String   @unique
+  tenant_id   String
+  name        String
+  class       String
+  target_exam String?
+  created_at  DateTime @default(now())
+
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tenant       Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  doubts       Doubt[]
+  test_attempts TestAttempt[]
+
+  @@index([tenant_id])
+  @@map("students")
+}
+
+model Doubt {
+  id                 String   @id @default(cuid())
+  student_id         String
+  tenant_id          String
+  question_text      String
+  question_image_url String?
+  solution           String?
+  created_at         DateTime @default(now())
+
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([student_id])
+  @@map("doubts")
+}
+
+model Test {
+  id               String   @id @default(cuid())
+  tenant_id        String
+  title            String
+  subject          String
+  duration_minutes Int
+  questions        Json
+  created_at       DateTime @default(now())
+
+  tenant   Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  attempts TestAttempt[]
+
+  @@index([tenant_id])
+  @@map("tests")
+}
+
+model TestAttempt {
+  id                 String    @id @default(cuid())
+  test_id            String
+  student_id         String
+  answers            Json
+  score              Float?
+  time_taken_seconds Int?
+  completed_at       DateTime?
+
+  test    Test    @relation(fields: [test_id], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([test_id])
+  @@index([student_id])
+  @@map("test_attempts")
+}
